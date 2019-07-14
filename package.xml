@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>grouper</name>
+  <version>0.0.0</version>
+  <description>The grouper package</description>
+
+  <maintainer email="sean@hackett.pw">Sean Hackett</maintainer>
+  <license>MIT</license>
+  <url type="repository">http://github.com/sean-hackett/grouper</url>
+
+  <exec_depend>rospy</exec_depend>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <export>
+  </export>
+</package>
