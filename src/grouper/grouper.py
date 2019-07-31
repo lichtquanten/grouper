@@ -30,9 +30,13 @@ class Counter(Grouper):
         self.buffer = []
 
     def __iter__(self):
-        while self.buffer:
-            out = self.buffer.pop()
-            yield out['count'], out['start_time'], out['end_time']
+        return self
+
+    def next(self):
+        if not self.buffer:
+            raise StopIteration
+        out = self.buffer.pop()
+        return out['count'], out['start_time'], out['end_time']
 
     def put(self, data, start_time, end_time):
         self.buffer.append({
@@ -163,12 +167,15 @@ class History(Grouper):
         self.times = []
 
     def __iter__(self):
-        """Returns the first `length` elements in the list"""
-        while len(self.buffer) > self.length:
-            out = self.buffer[:self.length], self.times[self.length][0], self.times[self.length][1]
-            del self.buffer[0]
-            del self.times[0]
-            yield out
+        return self
+
+    def next(self):
+        if len(self.buffer) <= self.length:
+            raise StopIteration
+        out = self.buffer[:self.length], self.times[self.length][0], self.times[self.length][1]
+        del self.buffer[0]
+        del self.times[0]
+        return out
 
     def put(self, data, start_time, end_time):
         self.buffer.append(data)
