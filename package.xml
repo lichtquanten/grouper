@@ -8,8 +8,6 @@
   <license>MIT</license>
   <url type="repository">http://github.com/sean-hackett/grouper</url>
 
-  <exec_depend>rospy</exec_depend>
-
   <buildtool_depend>catkin</buildtool_depend>
 
   <export>
