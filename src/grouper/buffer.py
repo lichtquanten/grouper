@@ -32,20 +32,6 @@ class BlockBuffer(object):
         self._buffer = self._buffer[self._block_size:]
         return out
 
-    @property
-    def num_blocks(self):
-        """Computes the number of complete blocks in the buffer"""
-        return int(len(self._buffer) / self._block_size)
-
-    def get_all(self):
-        """Returns the buffer.
-
-        Combines the blocks in the buffer and any leftover data into a single
-        iterable.
-        """
-        return self._buffer
-
-
 class BlockBufferNP(BlockBuffer):
     """A numpy implementation of BlockBuffer"""
 
