@@ -1,2 +1,2 @@
 from .combiner import Combiner
-from .grouper import Grouper, Counter, Block, Window, History, Neighborhood
+from .grouper import Grouper, Block, BlockArrLike, Counter, History, Neighborhood, Window

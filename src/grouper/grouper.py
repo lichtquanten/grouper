@@ -19,6 +19,7 @@ class Grouper(object):
     def put(self, data, start_time, end_time):
         pass
 
+
 class Block(Grouper):
     """Divides data into fixed length blocks.
 
@@ -83,6 +84,86 @@ class Block(Grouper):
                 (self._data, self._start_time, self._end_time))
             self._reset_data()
 
+
+class BlockArrLike(Grouper):
+    """Divides data in an array-like object into fixed length blocks.
+
+    To use with Python lists, give [] as the `buffer` argument and operator.add
+    as the `concatenate` argument of the constructor. Pass in lists for the
+    `data` argument of `put`.
+
+    To use with numpy arrays, give np.array([]) as the `buffer` argument
+    and `np.append` as the `concatenate` argument of the constructor. Pass in
+    numpy arrays for the `data` argument of `put`.
+    """
+    def __init__(self, block_size, buffer, concatenate):
+        """
+        Parameters
+        ----------
+        block_size : int
+            The length of each block.
+        buffer : array-like
+            A buffer to which data input via `put` will be added using `concatenate`.
+            The buffer must be empty.
+        concatenate : callable
+            Accepts two parameters, `buffer` and `data`. Returns a new buffer
+            containing both `buffer` and `data`. `uffer` is of the type given
+            in the `buffer` parameter. `data` is of the type given in calls to
+            `put`.
+        """
+        self._block_size = self._block_size
+        self._buffer = buffer
+        self._concatenate = concatenate
+
+        self._times = []
+        self._output_buffer = []
+        self._prev_end_time = None
+
+    def next(self):
+        if not self._output_buffer:
+            raise StopIteration
+        return self._output_buffer.pop(0)
+
+    def _get_start_time(self):
+        return self._times[0]['start_time']
+
+    def _get_end_time(self, block_length):
+        # Skip until the time window in which the block ends
+        while block_length > self._times[0]['length']:
+            block_length -= self._times[0]['length']
+            del self._times[0]
+
+        diff = self._times[0]['end_time'] - self._times[0]['start_time']
+        proportion = float(block_length) / self._times[0]['length']
+        self._times[0]['start_time'] += diff * proportion
+        self._times[0]['length'] -= block_length
+        return self._times[0]['start_time']
+
+    def put(self, data, start_time, end_time):
+        """
+        Parameters
+        ----------
+        data : array-like
+            An array-like containing individual datum.
+        start_time : implements __add__, __sub__, __mul__, __div__
+            The start time associated with `data`.
+        end_time : implements __add__, __sub__, __mul__, __div__
+            The end time associatd with `data`.
+        """
+        self._buffer = self._concatenate(self._buffer, data)
+        self._times.append({
+            'length': len(data),
+            'start_time': start_time,
+            'end_time': end_time
+        })
+        while len(self._buffer) >= self._block_size:
+            block = self._buffer[:self._block_size]
+            blk_start_time = self._get_start_time()
+            blk_end_time = self._get_end_time(len(block))
+            self._output_buffer.append((block, blk_start_time, blk_end_time))
+            self._buffer = self._buffer[self._block_size:]
+
+
 class Counter(Grouper):
     """Counts how many consecutive data satisfy `is_valid`.
     """
@@ -137,6 +218,7 @@ class Counter(Grouper):
             self._counter += 1
         else:
             self._counter = 0
+
 
 class History(Grouper):
     """Provides a list of the last `length` data input before each datum.
@@ -199,6 +281,7 @@ class History(Grouper):
         """
         self._data.append(datum)
         self._times.append((start_time, end_time))
+
 
 class Neighborhood(Grouper):
     """Determine is there is a valid group of contiguous data around some datum.
@@ -287,6 +370,7 @@ class Neighborhood(Grouper):
             if not first['handled']:
                 self._output_buffer.append(
                     (False, first['start_time'], first['end_time']))
+
 
 class Window(Grouper):
     """Divides timestamped data into windows of time of fixed duration.
