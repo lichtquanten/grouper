@@ -90,7 +90,6 @@ class Window(Grouper):
         start_time : implements __add__, __sub__
             The time from which the start time of all windows will be
             offset by a multiple of `window_duration`.
-
         window_duration : implements __add__, __sub__, __div__
             The duration of each window.
         """
