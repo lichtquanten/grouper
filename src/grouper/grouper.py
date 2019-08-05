@@ -35,7 +35,7 @@ class Counter(Grouper):
     def next(self):
         if not self.buffer:
             raise StopIteration
-        out = self.buffer.pop()
+        out = self.buffer.pop(0)
         return out['count'], out['start_time'], out['end_time']
 
     def put(self, data, start_time, end_time):
