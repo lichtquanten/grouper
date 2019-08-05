@@ -41,9 +41,9 @@ class Counter(Grouper):
         int
             The number of consecutive valid `datum` received prior to the
             earliest received `datum` in the buffer.
-        rospy.time.Time
+        any
             The start time of the earliest received `datum` in the buffer.
-        rospy.time.Time
+        any
             The end time of the earliest received `datum` in the buffer.
 
         Raises
@@ -117,56 +117,98 @@ class Block(Grouper):
         self._times.append([len(data), start_time, end_time])
 
 class Window(Grouper):
-    """Divides data into windows at fixed offsets from initial start time.
+    """Divides timestamped data into windows of time of fixed duration.
 
-    Windows are of duration window_duration. First window starts
-    at start_time. Any data from earlier is ignored. Assumes that data is
+    All windows are offset from the initial start time by a multiple of the
+    window duration. The first window yielded is the earliest window into which
+    the first received datum falls.
+
+    Assumes that data are received in temporal order.
     received in temporal order.
     """
     def __init__(self, start_time, window_duration):
+        """
+        Parameters
+        ----------
+        start_time : implements __add__, __sub__
+            The time from which the start time of all windows will be
+            offset by a multiple of `window_duration`.
+
+        window_duration : implements __add__, __sub__, __div__
+            The duration of each window.
+        """
         self._start_time = start_time
         self._window_duration = window_duration
-        self._buffer = []
+        self._windows = []
+        self._current = None
+
+    def next(self):
+        """
+        Returns
+        -------
+        list
+            A list of data in a window. A datum is considered in a window if
+            it overlaps in time with the window.
+        any
+            The start time of the window.
+        any
+            The end time of the window.
+
+        Raises
+        ------
+        StopIteration
+            When there are no more available windows.
+        """
+        if not self._windows:
+            raise StopIteration
+        window = self._windows.pop(0)
+        return (window['data'], window['start_time'], window['end_time'])
+
+    def _initialize_current(self):
+        # Accelerate the start time, if needed
+        if start_time > self._start_time:
+            diff = start_time - self._start_time
+            self._start_time += self._window_duration * int(diff / self._window_duration)
+
+        # Initialize current
         self._current = {
-            'start_time': start_time,
-            'end_time': start_time + window_duration,
+            'start_time': self._start_time,
+            'end_time': self._start_time + self._window_duration,
             'data': []
         }
 
-    def __iter__(self):
-        return self
-
-    def next(self):
-        if not self._buffer:
-            raise StopIteration
-        window = self._buffer.pop(0)
-        return (window['data'], window['start_time'], window['end_time'])
-
-    def _next_window(self):
-        """Advances the to the following window. Adds the current window to the
-        buffer.
+    def _send_current(self):
+        """Adds the current window to the `_windows` buffer. Creates a new current window.
         """
         new_window = {
             'start_time': self._current['end_time'],
             'end_time': self._current['end_time'] + self._window_duration,
             'data': []
         }
-        self._buffer.append(self._current)
+        self._windows.append(self._current)
         self._current = new_window
 
-    def put(self, data, start_time, end_time):
+    def put(self, datum, start_time, end_time):
         # Ignore data ending before current window starts
         if end_time < self._start_time:
             return
-        # Ship window if it ends before the data ends
+
+        # True on first pass
+        if not self._current:
+            self._initialize_current()
+
+        # Ship window if it ends before the `datum` ends
         while start_time > self._current['end_time']:
-            self._next_window()
-        # Add to and ship all windows that it ends after
+            self._send_current()
+
+        # Add `datum` to and ship all windows that end before `datum` ends
         while end_time > self._current['end_time']:
-            self._current['data'].append(data)
-            self._next_window()
-        # Add to the window that it ends in
-        self._current['data'].append(data)
+            self._current['data'].append(datum)
+            self._send_current()
+
+        # Add `datum` to the window that in which its end time falls
+        self._current['data'].append(datum)
+
 class History(Grouper):
     """Reports the last `length` entries.
     """
