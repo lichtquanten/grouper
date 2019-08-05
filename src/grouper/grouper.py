@@ -20,11 +20,14 @@ class Grouper(object):
         pass
 
 class Block(Grouper):
-    """Divides data into blocks of fixed length.
+    """Divides data into fixed length blocks.
 
-    Wrapper to BlockBuffer that tracks start, end time of blocks.
-    Accepts timestamped input data. Produces timestamped blocks.
+    A block consists of `length` consecutive datum. Every input datum
+    appears in exactly 1 block. The start and end time of a block is determined
+    by the start time of the first datum in the block and the end time of the
+    last datum in the block, respectively.
 
+    Data are assumed to be `put` in temporal order.
     """
     def __init__(self, block_size):
         self._block_size = self._block_size
@@ -37,11 +40,39 @@ class Block(Grouper):
         self._end_time = None
 
     def next(self):
+        """
+        Returns
+        -------
+        list
+            A list of consecutive data, of length `length`.
+        any
+            The start time of the first datum in the block.
+        any
+            The end time of the last datum in the block.
+
+        Raises
+        ------
+        StopIteration
+            When there are no more available blocks.
+        """
         if not self._output_buffer:
             raise StopIteration
         return self._output_buffer.pop(0)
 
     def put(self, datum, start_time, end_time):
+        """Add `datum` to the buffer, create a block if possible.
+
+        `datum` assumed to be after, by timestamp, all previously put data.
+
+        Parameters
+        ----------
+        datum: any
+            Anything.
+        start_time : any
+            The start time associated with `datum`.
+        end_time : any
+            The end time associated with `datum`.
+        """
         self._data.append(datum)
         if self._start_time is None:
             self._start_time = start_time
