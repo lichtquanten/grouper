@@ -13,9 +13,8 @@ class Grouper:
     def __init__(self):
         pass
 
-    @abstractmethod
     def __iter__(self):
-        pass
+        return self
 
     @abstractmethod
     def put(self, data, start_time, end_time):
@@ -25,29 +24,26 @@ class Counter(Grouper):
     """Counts how many consecutive units prior to a unit satisfy `is_valid`.
     """
     def __init__(self, is_valid):
-        self.is_valid = is_valid
-        self.counter = 0
-        self.buffer = []
-
-    def __iter__(self):
-        return self
+        self._is_valid = is_valid
+        self._counter = 0
+        self._buffer = []
 
     def next(self):
-        if not self.buffer:
+        if not self._buffer:
             raise StopIteration
-        out = self.buffer.pop(0)
+        out = self._buffer.pop(0)
         return out['count'], out['start_time'], out['end_time']
 
     def put(self, data, start_time, end_time):
-        self.buffer.append({
-            'count': self.counter,
+        self._buffer.append({
+            'count': self._counter,
             'start_time': start_time,
             'end_time': end_time
         })
-        if self.is_valid(data):
-            self.counter += 1
+        if self._is_valid(data):
+            self._counter += 1
         else:
-            self.counter = 0
+            self._counter = 0
 
 class Block(Grouper):
     """Divides data into blocks of fixed length.
