@@ -41,7 +41,6 @@ class Counter(Grouper):
         int
             The number of consecutive valid `datum` received prior to the
             earliest received `datum` in the buffer.
-            ``
         rospy.time.Time
             The start time of the earliest received `datum` in the buffer.
         rospy.time.Time
