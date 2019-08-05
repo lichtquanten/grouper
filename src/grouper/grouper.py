@@ -21,26 +21,44 @@ class Grouper:
         pass
 
 class Counter(Grouper):
-    """Counts how many consecutive units prior to a unit satisfy `is_valid`.
+    """Counts how many consecutive data satisfy `is_valid`.
     """
     def __init__(self, is_valid):
+        """
+        Parameters
+        ----------
+        is_valid : callable
+            A function that takes a `datum` as input and returns a bool.
+        """
         self._is_valid = is_valid
         self._counter = 0
         self._buffer = []
 
     def next(self):
+        """
+        Returns
+        -------
+        int
+            The number of consecutive valid `datum` received prior to the
+            earliest received `datum` in the buffer.
+            ``
+        rospy.time.Time
+            The start time of the earliest received `datum` in the buffer.
+        rospy.time.Time
+            The end time of the earliest received `datum` in the buffer.
+
+        Raises
+        ------
+        StopIteration
+            When the buffer is empty.
+        """
         if not self._buffer:
             raise StopIteration
-        out = self._buffer.pop(0)
-        return out['count'], out['start_time'], out['end_time']
+        return self._buffer.pop(0)
 
-    def put(self, data, start_time, end_time):
-        self._buffer.append({
-            'count': self._counter,
-            'start_time': start_time,
-            'end_time': end_time
-        })
-        if self._is_valid(data):
+    def put(self, datum, start_time, end_time):
+        self._buffer.append((self._counter, start_time, end_time))
+        if self._is_valid(datum):
             self._counter += 1
         else:
             self._counter = 0
