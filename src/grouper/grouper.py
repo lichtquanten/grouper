@@ -140,7 +140,7 @@ class Window(Grouper):
     def next(self):
         if not self._buffer:
             raise StopIteration
-        window = self._buffer.pop()
+        window = self._buffer.pop(0)
         return (window['data'], window['start_time'], window['end_time'])
 
     def _next_window(self):
