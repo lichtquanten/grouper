@@ -1,83 +1,118 @@
 class Combiner():
-    """Merges all data from a time window into a dictionary.
+    """Wait for a datum from each topic and output a complete bundle.
 
-    A list of topics are specified on initialization. The data from a time
-    window is not sent to the callbacks until there is data for each topic.
+    The first bundle output is the first bundle for which all topics
+    provide a datum. This avoids the problem of arbitrarily many windows
+    being output for topics that start at different times.
+
+    Data are assummed to be in chronological order for each topic.
     """
-
     def __init__(self, start_time, window_duration, topics):
-        self._last_time = start_time
+        """
+        Parameters
+        ----------
+        start_time : implements __add__
+            The time from which the start time of all bundles will be offset
+            by a multiple of `window_duration`.
+        window_duration : implements __add__
+            The duration of time to which each bundle corresponds.
+        topics : list of str
+            A list of the topics in the output bundle.
+        """
+        self._next_start_time = start_time
         self._window_duration = window_duration
-        self.topics = topics
-        self._windows = []
-        self._add_window()
+        self._topics = topics
 
+        self._initialized = {topic: False for topic in self._topics}
+        self._windows = []
 
     def __iter__(self):
         return self
 
     def next(self):
-        if self._windows and self._is_window_ready(0):
+        """
+        Returns
+        -------
+        dict
+            A field for every topic containing the datum with start time, end time
+            most overlapping with the start, end time of the bundle.
+        any
+            Start time of the bundle.
+        any
+            End time of the bundle.
+        Raises
+        ------
+        StopIteration
+            When there are no bundles in which all topics are ready.
+        """
+        if self._is_window_ready(self._windows[0]):
             window = self._windows.pop(0)
-            return window['data'], window['start_time'], window['end_time']
+            return (window['data'], window['start_time'], window['end_time'])
         else:
             raise StopIteration
 
     def _add_window(self):
-        """Appends a blank new window to the buffer, advances the time.
-        """
+        """Appends a blank new window to the buffer, advances the time."""
         self._windows.append(
             {
-                'data': {topic: None for topic in self.topics},
-                'start_time': self._last_time,
-                'end_time': self._last_time + self._window_duration,
-                'statuses': {topic: False for topic in self.topics},
-                'overlaps': {topic: 0 for topic in self.topics},
+                'data': {topic: None for topic in self._topics},
+                'start_time': self._next_start_time,
+                'end_time': self._next_start_time + self._window_duration,
+                'statuses': {topic: False for topic in self._topics},
+                'overlaps': {topic: 0 for topic in self._topics},
             })
-        self._last_time += self._window_duration
-
-    def _is_window_ready(self, index):
-        """Determines if every topic in a window has been marked as handled.
-
-        Args:
-            index: The index of a window in the window buffer. This window
-                is checked for readiness.
-        Returns:
-            True if the status of all topics in the window have True status.
-        """
-        return all(self._windows[index]['statuses'].values())
+        self._next_start_time += self._window_duration
 
     @staticmethod
-    def _overlap(start_time, end_time, window_start_time, window_end_time):
-        """
+    def _is_window_ready(window):
+        return all(window['statuses'].values())
 
-        Args:
-
-        Returns:
-            A number [0, 1.0] that gives the proportion of overlap.
-        """
-        if start_time > window_end_time or end_time < window_start_time:
+    @staticmethod
+    def _overlap(start, end, w_start, w_end):
+        """Computes the proportion of `w_start` to `w_end` that overlaps with
+        `start` to `end`."""
+        if start > w_end or end < w_start:
             return 0
-        start = max(start_time, window_start_time)
-        end = min(end_time, window_end_time)
-        return (end - start) / (window_end_time - window_start_time)
+        start = max(start, w_start)
+        end = min(end, w_end)
+        window_duration = w_end - w_start
+        return (end - start) / window_duration
 
-    def put(self, topic, data, start_time, end_time):
+    def put(self, topic, datum, start_time, end_time):
+        """Adds `datum` to whatever bundles its start, end time overlap with,
+        overwritting existing data if it has greater overlap.
+
+        Parameters
+        ----------
+        topic : str
+            A topic from the list of topics provided in the constructor.
+        datum : any
+            Anything.
+        start_time : implements __add__
+            The start time of `datum`.
+        end_time : implements __add__
+            The end time of `datum`.
         """
-        Args:
-            topic:
-            data:
-            start_time:
-            end_time:
-        """
+        if not self._initialized[topic]:
+            self._initialized[topic] = True
+            # Remove windows that end prior to the start of the first datum
+            # on this topic
+            while self._windows and start_time > self._windows[0]['end_time']:
+                del self._windows[0]
+            # Accelerate the next start time, if needed
+            if start_time > self._next_start_time:
+                # This will only happen if self._windows is empty
+                diff = start_time - self._next_start_time
+                self._next_start_time += self._window_duration * int(diff / self._window_duration)
+
         # Add a window if there are none
         if not self._windows:
             self._add_window()
-        # If the data ends before the earliest buffer starts, ignore it
+        # If the data ends before the earliest window starts, ignore it
         if end_time < self._windows[0]['start_time']:
             return
         # Make sure that all of the needed windows are there
-        while not self._windows[-1]['start_time'] > end_time:
+        while self._windows[-1]['start_time'] <= end_time:
             self._add_window()
         for window in self._windows:
             # Mark earlier windows as ready, for this topic
@@ -92,5 +127,5 @@ class Combiner():
                     start_time, end_time,
                     window['start_time'], window['end_time'])
                 if overlap > window['overlaps'][topic]:
-                    window['data'][topic] = data
+                    window['data'][topic] = datum
                     window['overlaps'][topic] = overlap

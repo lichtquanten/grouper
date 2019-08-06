@@ -23,7 +23,7 @@ class Grouper(object):
 class Block(Grouper):
     """Divides data into fixed length blocks.
 
-    A block consists of `length` consecutive datum. Every input datum
+    A block consists of `length` consecutive data. Every input datum
     appears in exactly 1 block. The start and end time of a block is determined
     by the start time of the first datum in the block and the end time of the
     last datum in the block, respectively.
@@ -31,11 +31,18 @@ class Block(Grouper):
     Data are assumed to be `put` in temporal order.
     """
     def __init__(self, block_size):
-        self._block_size = self._block_size
+        """
+        Parameters
+        ---------
+        block_size : int
+            The number of data in each block.
+
+        """
+        self._block_size = block_size
         self._output_buffer = []
         self._reset_data()
 
-    def _reset_data():
+    def _reset_data(self):
         self._data = []
         self._start_time = None
         self._end_time = None
@@ -111,7 +118,7 @@ class BlockArrLike(Grouper):
             in the `buffer` parameter. `data` is of the type given in calls to
             `put`.
         """
-        self._block_size = self._block_size
+        self._block_size = block_size
         self._buffer = buffer
         self._concatenate = concatenate
 
@@ -354,8 +361,8 @@ class Neighborhood(Grouper):
             'handled': False
         })
         # Check if the buffer contains a full neighborhood
-        if len(self._buffer) == self.length:
-            nbhd = [x['data'] for x in self._buffer]
+        if len(self._buffer) == self._length:
+            nbhd = [x['datum'] for x in self._buffer]
             if self._is_valid(nbhd):
                 # Handle all unhandled data in valid neighborhood
                 for x in self._buffer:
@@ -419,7 +426,7 @@ class Window(Grouper):
         window = self._windows.pop(0)
         return (window['data'], window['start_time'], window['end_time'])
 
-    def _initialize_current(self):
+    def _initialize_current(self, start_time):
         """Find appropriate start time for first window, create first window."""
         # Accelerate the start time, if needed
         if start_time > self._start_time:
@@ -464,10 +471,10 @@ class Window(Grouper):
 
         # True on first pass
         if not self._current:
-            self._initialize_current()
+            self._initialize_current(start_time)
 
-        # Ship window if it ends before the `datum` ends
-        while start_time > self._current['end_time']:
+        # Ship window if it ends before the `datum` starts
+        while start_time >= self._current['end_time']:
             self._send_current()
 
         # Add `datum` to and ship all windows that end before `datum` ends
