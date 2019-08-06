@@ -45,7 +45,7 @@ class Combiner():
         StopIteration
             When there are no bundles in which all topics are ready.
         """
-        if self._is_window_ready(self._windows[0]):
+        if self._windows and self._is_window_ready(self._windows[0]):
             window = self._windows.pop(0)
             return (window['data'], window['start_time'], window['end_time'])
         else:
