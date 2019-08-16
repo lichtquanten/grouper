@@ -378,6 +378,48 @@ class Neighborhood(Grouper):
                 self._output_buffer.append(
                     (False, first['start_time'], first['end_time']))
 
+class Group_Cluster(Grouper):
+    """Cluster the groups a datum belongs to.
+
+       A datum can belong to several groups (i.e. neighboorhoods) and Group_Cluster is
+       intended to return these groups surrounding and containing a datum
+    """
+    def __init__(self, length):
+        """
+        Parameters
+        ----------
+        length : int
+            The amount of groups you want in this cluster surrounding some datum.
+            Should correspond to the length of the individual groups in the Group_Cluster
+        """
+        self.length = length
+        self.buffer = collections.deque(maxlen=self.length)
+
+    #return a deque storing the collection of neighborhoods surrounding any datum
+    def __iter__(self):
+         if not self.buffer.length == self.length:
+             yield self.buffer
+         else:
+             yield self.buffer
+             # there is no need to pop_left() the buffer as deque is already doing this
+
+    #put in a neighborhood or any grouped data
+    def put(self, data, start_time, end_time):
+        """
+        Parameters
+        ----------
+        datum: any
+            Anything.
+        start_time : any
+            The start time associated with `datum`.
+        end_time : any
+            The end time associated with `datum`.
+        """
+        self.buffer.append({
+            'data': data,
+            'start_time': start_time,
+            'end_time': end_time,
+        })
 
 class Window(Grouper):
     """Divides timestamped data into windows of time of fixed duration.
