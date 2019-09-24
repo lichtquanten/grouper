@@ -97,7 +97,7 @@ class Combiner():
             self._initialized[topic] = True
             # Remove windows that end prior to the start of the first datum
             # on this topic
-            while self._windows and start_time > self._windows[0]['end_time']:
+            while self._windows and start_time >= self._windows[0]['end_time']:
                 del self._windows[0]
             # Accelerate the next start time, if needed
             if start_time > self._next_start_time:
